@@ -47,6 +47,8 @@ type Term struct {
 type Storer interface {
 	Client() interface{}
 	SetTable(table string)
+	SetOrder(path string)
+	SetDirection(descending bool)
 	Get(ctx context.Context, uid string) (map[string]interface{}, error)
 	Set(ctx context.Context, uid string, in interface{}) (map[string]interface{}, error)
 	All(ctx context.Context) ([]map[string]interface{}, error)
