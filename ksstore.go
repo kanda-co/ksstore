@@ -56,8 +56,10 @@ type Storer interface {
 
 // FStore implementation with Storer of Firestore
 type FStore struct {
-	table  string
-	client *firestore.Client
+	table      string
+	order      *string
+	descending bool
+	client     *firestore.Client
 }
 
 // Client return firestore client
@@ -65,6 +67,12 @@ func (s *FStore) Client() interface{} { return s.client }
 
 // SetTable set collection
 func (s *FStore) SetTable(table string) { s.table = table }
+
+// SetOrder set query ordering by path
+func (s *FStore) SetOrder(path string) { s.order = &path }
+
+// SetDirection set query order by direction, default in ascending
+func (s *FStore) SetDirection(descending bool) { s.descending = descending }
 
 // Get return uid matched record
 func (s *FStore) Get(ctx context.Context, uid string) (map[string]interface{}, error) {
@@ -100,8 +108,21 @@ func (s *FStore) Set(ctx context.Context, uid string, in interface{}) (map[strin
 
 // All return all records
 func (s *FStore) All(ctx context.Context) ([]map[string]interface{}, error) {
-	iter := s.client.Collection(s.table).Documents(ctx)
-	results := make([]map[string]interface{}, 0)
+	var (
+		iter    *firestore.DocumentIterator
+		results = make([]map[string]interface{}, 0)
+	)
+	collection := s.client.Collection(s.table)
+	if s.order != nil {
+		direction := firestore.Asc
+		if s.descending {
+			direction = firestore.Desc
+		}
+		iter = collection.OrderBy(*s.order, direction).Documents(ctx)
+	} else {
+		iter = collection.Documents(ctx)
+	}
+
 	for {
 		doc, err := iter.Next()
 		if err == iterator.Done {
@@ -118,13 +139,25 @@ func (s *FStore) All(ctx context.Context) ([]map[string]interface{}, error) {
 
 // Query return records from matched terms
 func (s *FStore) Query(ctx context.Context, terms ...Term) ([]map[string]interface{}, error) {
+	var (
+		query   firestore.Query
+		iter    *firestore.DocumentIterator
+		results = make([]map[string]interface{}, 0)
+	)
 	ref := s.client.Collection(s.table)
-	var query firestore.Query
 	for _, term := range terms {
 		query = ref.Where(term.Field, term.Op, term.Value)
 	}
-	results := make([]map[string]interface{}, 0)
-	iter := query.Documents(ctx)
+	if s.order != nil {
+		direction := firestore.Asc
+		if s.descending {
+			direction = firestore.Desc
+		}
+		iter = query.OrderBy(*s.order, direction).Documents(ctx)
+	} else {
+		iter = query.Documents(ctx)
+	}
+
 	for {
 		doc, err := iter.Next()
 		if err == iterator.Done {
