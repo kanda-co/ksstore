@@ -47,8 +47,6 @@ type Term struct {
 type Storer interface {
 	Client() interface{}
 	SetTable(table string)
-	SetOrder(path string)
-	SetDirection(descending bool)
 	Get(ctx context.Context, uid string) (map[string]interface{}, error)
 	Set(ctx context.Context, uid string, in interface{}) (map[string]interface{}, error)
 	All(ctx context.Context) ([]map[string]interface{}, error)
@@ -58,10 +56,8 @@ type Storer interface {
 
 // FStore implementation with Storer of Firestore
 type FStore struct {
-	table      string
-	order      *string
-	descending bool
-	client     *firestore.Client
+	table  string
+	client *firestore.Client
 }
 
 // Client return firestore client
@@ -69,12 +65,6 @@ func (s *FStore) Client() interface{} { return s.client }
 
 // SetTable set collection
 func (s *FStore) SetTable(table string) { s.table = table }
-
-// SetOrder set query ordering by path
-func (s *FStore) SetOrder(path string) { s.order = &path }
-
-// SetDirection set query order by direction, default in ascending
-func (s *FStore) SetDirection(descending bool) { s.descending = descending }
 
 // Get return uid matched record
 func (s *FStore) Get(ctx context.Context, uid string) (map[string]interface{}, error) {
@@ -115,15 +105,7 @@ func (s *FStore) All(ctx context.Context) ([]map[string]interface{}, error) {
 		results = make([]map[string]interface{}, 0)
 	)
 	collection := s.client.Collection(s.table)
-	if s.order != nil {
-		direction := firestore.Asc
-		if s.descending {
-			direction = firestore.Desc
-		}
-		iter = collection.OrderBy(*s.order, direction).Documents(ctx)
-	} else {
-		iter = collection.Documents(ctx)
-	}
+	iter = collection.Documents(ctx)
 
 	for {
 		doc, err := iter.Next()
@@ -150,15 +132,7 @@ func (s *FStore) Query(ctx context.Context, terms ...Term) ([]map[string]interfa
 	for _, term := range terms {
 		query = ref.Where(term.Field, term.Op, term.Value)
 	}
-	if s.order != nil {
-		direction := firestore.Asc
-		if s.descending {
-			direction = firestore.Desc
-		}
-		iter = query.OrderBy(*s.order, direction).Documents(ctx)
-	} else {
-		iter = query.Documents(ctx)
-	}
+	iter = query.Documents(ctx)
 
 	for {
 		doc, err := iter.Next()
