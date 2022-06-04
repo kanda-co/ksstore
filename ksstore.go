@@ -123,6 +123,9 @@ func (s *FStore) All(ctx context.Context) ([]map[string]interface{}, error) {
 
 // Query return records from matched terms
 func (s *FStore) Query(ctx context.Context, terms ...Term) ([]map[string]interface{}, error) {
+	if len(terms) == 0 {
+		return s.All(ctx)
+	}
 	var (
 		query   firestore.Query
 		iter    *firestore.DocumentIterator
